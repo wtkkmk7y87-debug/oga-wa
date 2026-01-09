@@ -24,11 +24,10 @@ button {
 </style>
 </head>
 <body>
-<button onclick="alert('OK')">テスト</button>
 <div id="map"></div>
 <script>
-const imageWidth = 3000;   // ← 仮の数字でOK
-const imageHeight = 2000; // ← 仮の数字でOK
+const imageWidth = 3312;   // ← 仮の数字でOK
+const imageHeight = 3392; // ← 仮の数字でOK
 const bounds = [[0,0], [imageHeight, imageWidth]];
 const map = L.map('map', {
  crs: L.CRS.Simple,
@@ -40,3 +39,4 @@ map.fitBounds(bounds);
 </script>
 </body>
 </html>
+
