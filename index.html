@@ -42,18 +42,26 @@ const imageHeight = 3392;
    2️⃣ 画像とGPSの対応点（超重要）
    ※ Googleマップで取得して書き換える
 ================================ */
-const imgTopLeft     = { x: 0, y: 0 };
-const imgBottomRight = { x: imageWidth, y: imageHeight };
+/* ===============================
+ 2️⃣ 画像とGPSの対応点（超重要）
+================================ */
 
-const gpsTopLeft = {
-  lat: 35.640390,   // ← 実際の値にする
-  lng: 139.294699
-};
+// ★ここに置く
+const controlPoints = [
+  {
+    img: { x: 420, y: 380 },
+    gps: { lat: 35.639812, lng: 139.296120 }
+  },
+  {
+    img: { x: 2900, y: 3100 },
+    gps: { lat: 35.638450, lng: 139.299980 }
+  },
+  {
+    img: { x: 1600, y: 1200 },
+    gps: { lat: 35.639100, lng: 139.298200 }
+  }
+];
 
-const gpsBottomRight = {
-  lat: 35.638276,   // ← 実際の値にする
-  lng: 139.300801
-};
 
 /* ===============================
    3️⃣ Leaflet 初期化
@@ -149,3 +157,4 @@ map.on("click", e => {
 
 </body>
 </html>
+
