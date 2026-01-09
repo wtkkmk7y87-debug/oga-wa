@@ -2,12 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>画像地図 × GPS ナビ</title>
+<title>画像地図 × GPS ナビ（完成版）</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<!-- ★ 数学ライブラリ（必須） -->
+<!-- 行列計算用 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
 
 <style>
@@ -24,7 +24,6 @@ button {
   left: 10px;
   top: 10px;
   z-index: 1000;
-  padding: 6px 10px;
 }
 </style>
 </head>
@@ -35,26 +34,30 @@ button {
 
 <script>
 /* ===============================
- 1️⃣ 地図画像サイズ
+ 1️⃣ 画像サイズ
 ================================ */
 const imageWidth  = 3312;
 const imageHeight = 3392;
 
 /* ===============================
- 2️⃣ 画像とGPSの対応点（3点以上）
+ 2️⃣ 対応点（4点以上・正確に）
 ================================ */
 const controlPoints = [
   {
-    img: { x: 2453, y: 2214 },
-    gps: { lat: 35.638694, lng: 139.300228 } //一棟
+    img: { x: 300, y: 300 },
+    gps: { lat: 35.639900, lng: 139.299000 }
   },
   {
-    img: { x: 1561, y: 1550 },
-    gps: { lat: 35.639768, lng: 139.305469 }　//プール
+    img: { x: 3000, y: 300 },
+    gps: { lat: 35.639900, lng: 139.301000 }
   },
   {
-    img: { x: 2938, y: 1696 },
-    gps: { lat: 35.639524, lng: 139.300162 }　//七棟
+    img: { x: 300, y: 3000 },
+    gps: { lat: 35.638900, lng: 139.299000 }
+  },
+  {
+    img: { x: 3000, y: 3000 },
+    gps: { lat: 35.638900, lng: 139.301000 }
   }
 ];
 
@@ -65,28 +68,35 @@ function computeAffine(points) {
   let A = [], B = [];
 
   points.forEach(p => {
-    const { lat, lng } = p.gps;
+    const lat = -p.gps.lat; // ★超重要（上下反転）
+    const lng =  p.gps.lng;
+
     A.push([lng, lat, 1, 0, 0, 0]);
     A.push([0, 0, 0, lng, lat, 1]);
+
     B.push(p.img.x);
     B.push(p.img.y);
   });
 
   const AT = math.transpose(A);
-  const X  = math.multiply(
+  const X = math.multiply(
     math.inv(math.multiply(AT, A)),
     math.multiply(AT, B)
   );
 
-  return { a: X[0], b: X[1], c: X[2], d: X[3], e: X[4], f: X[5] };
+  return {
+    a: X[0], b: X[1], c: X[2],
+    d: X[3], e: X[4], f: X[5]
+  };
 }
 
 const affine = computeAffine(controlPoints);
 
 /* ===============================
- 4️⃣ GPS → 画像座標変換
+ 4️⃣ GPS → 画像座標
 ================================ */
 function gpsToImage(lat, lng) {
+  lat = -lat; // ★必須
   return {
     x: affine.a * lng + affine.b * lat + affine.c,
     y: affine.d * lng + affine.e * lat + affine.f
@@ -97,21 +107,20 @@ function gpsToImage(lat, lng) {
  5️⃣ Leaflet 初期化
 ================================ */
 const bounds = [[0, 0], [imageHeight, imageWidth]];
-
-const map = L.map('map', {
+const map = L.map("map", {
   crs: L.CRS.Simple,
   minZoom: -2,
   maxZoom: 2
 });
 
-L.imageOverlay('map.png', bounds).addTo(map);
+L.imageOverlay("map.png", bounds).addTo(map);
 map.fitBounds(bounds);
 
-/* 🔴 基準点デバッグ（確認用） */
+/* 🔴 対応点デバッグ（必ず動く） */
 controlPoints.forEach(p => {
   const r = gpsToImage(p.gps.lat, p.gps.lng);
   L.circleMarker([r.y, r.x], {
-    radius: 8,
+    radius: 7,
     color: "red"
   }).addTo(map);
 });
@@ -130,10 +139,7 @@ function drawRoute() {
   routeLine = L.polyline([
     startMarker.getLatLng(),
     goalMarker.getLatLng()
-  ], {
-    color: "blue",
-    weight: 4
-  }).addTo(map);
+  ], { color: "blue", weight: 4 }).addTo(map);
 }
 
 /* ===============================
@@ -146,7 +152,6 @@ document.getElementById("btn-gps").onclick = () => {
       const p = gpsToImage(latitude, longitude);
 
       if (startMarker) map.removeLayer(startMarker);
-
       startMarker = L.marker([p.y, p.x])
         .addTo(map)
         .bindPopup("現在地")
@@ -155,32 +160,21 @@ document.getElementById("btn-gps").onclick = () => {
       drawRoute();
     },
     err => alert(err.message),
-    {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 10000
-    }
+    { enableHighAccuracy: true }
   );
 };
 
 /* ===============================
- 8️⃣ 目的地設定
+ 8️⃣ 目的地
 ================================ */
 map.on("click", e => {
   if (goalMarker) map.removeLayer(goalMarker);
-
   goalMarker = L.marker(e.latlng)
     .addTo(map)
     .bindPopup("目的地")
     .openPopup();
-
   drawRoute();
 });
 </script>
 </body>
 </html>
-
-
-
-
-
