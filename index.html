@@ -2,104 +2,41 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>オリジナル地図ナビ</title>
-
+<title>地図テスト</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <style>
-  body { margin:0; }
-  #map { height:100vh; }
-  button {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 999;
-    padding: 10px;
-  }
+html, body {
+ height: 100%;
+ margin: 0;
+}
+#map {
+ width: 100%;
+ height: 100%;
+ background: #ddd;
+}
+button {
+ position: fixed;
+ top: 10px;
+ left: 10px;
+ z-index: 1000;
+}
 </style>
 </head>
-
 <body>
-<button onclick="setGoal()">🎯目的地を置く</button>
-<button onclick="getLocation()">📍現在地</button>
+<button onclick="alert('OK')">テスト</button>
 <div id="map"></div>
-
 <script>
-const imageWidth = 3312;
-const imageHeight = 3392;
+const imageWidth = 3000;   // ← 仮の数字でOK
+const imageHeight = 2000; // ← 仮の数字でOK
 const bounds = [[0,0], [imageHeight, imageWidth]];
-
-// ★基準点A（書き換える）
-const pointA = {
-  lat: 35.639524,
-  lng: 139.300163,
-  x: 2938,
-  y: 1700
-};
-
-// ★基準点B（書き換える）
-const pointB = {
-  lat: 35.638538,
-  lng: 139.299397,
-  x: 2545,
-  y: 2306
-};
-
 const map = L.map('map', {
-  crs: L.CRS.Simple,
-  minZoom: -2
+ crs: L.CRS.Simple,
+ minZoom: -2,
+ maxZoom: 2
 });
-
 L.imageOverlay('map.png', bounds).addTo(map);
 map.fitBounds(bounds);
-
-let myMarker, goalMarker, routeLine;
-
-// GPS → 画像座標へ変換
-function gpsToImage(lat, lng) {
-  const dx = (pointB.x - pointA.x) / (pointB.lng - pointA.lng);
-  const dy = (pointB.y - pointA.y) / (pointB.lat - pointA.lat);
-
-  const x = pointA.x + (lng - pointA.lng) * dx;
-  const y = pointA.y + (lat - pointA.lat) * dy;
-
-  return [y, x];
-}
-
-// 現在地
-function getLocation() {
-  navigator.geolocation.getCurrentPosition(pos => {
-    const p = gpsToImage(pos.coords.latitude, pos.coords.longitude);
-
-    if(myMarker) map.removeLayer(myMarker);
-    myMarker = L.marker(p).addTo(map).bindPopup("現在地").openPopup();
-
-    drawRoute();
-  });
-}
-
-// 目的地設置（タップ）
-function setGoal() {
-  alert("地図をタップして目的地を決めてください");
-  map.once("click", e => {
-    if(goalMarker) map.removeLayer(goalMarker);
-    goalMarker = L.marker(e.latlng).addTo(map).bindPopup("目的地").openPopup();
-    drawRoute();
-  });
-}
-
-// ルート描画（直線）
-function drawRoute() {
-  if(!myMarker || !goalMarker) return;
-
-  if(routeLine) map.removeLayer(routeLine);
-
-  routeLine = L.polyline([
-    myMarker.getLatLng(),
-    goalMarker.getLatLng()
-  ]).addTo(map);
-}
 </script>
 </body>
 </html>
