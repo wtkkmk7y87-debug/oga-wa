@@ -15,7 +15,6 @@ html, body {
 #map {
   width: 100%;
   height: 100%;
-  background: #ddd;
 }
 button {
   position: fixed;
@@ -30,29 +29,28 @@ button {
 
 <body>
 
-<button id="btn-start">📍 現在地を置く</button>
-<button id="btn-goal">🎯 目的地を置く</button>
+<button id="btn-start">📍 現在地</button>
+<button id="btn-goal">🎯 目的地</button>
 
 <div id="map"></div>
 
 <script>
-// ===== 画像サイズ（仮でOK） =====
+// ===== 画像サイズ =====
 const imageWidth  = 3312;
 const imageHeight = 3392;
 
-// ===== Leaflet設定 =====
+// ===== 地図 =====
 const bounds = [[0, 0], [imageHeight, imageWidth]];
-
 const map = L.map('map', {
   crs: L.CRS.Simple,
   minZoom: -2,
   maxZoom: 2
 });
-
 L.imageOverlay('map.png', bounds).addTo(map);
 map.fitBounds(bounds);
 
-// ===== マーカー =====
+// ===== 状態 =====
+let mode = null; // "start" or "goal"
 let startMarker = null;
 let goalMarker  = null;
 let routeLine   = null;
@@ -72,37 +70,38 @@ function drawRoute() {
   }).addTo(map);
 }
 
-// ===== 現在地を置く =====
+// ===== ボタン =====
 document.getElementById("btn-start").onclick = () => {
+  mode = "start";
   alert("地図をタップして現在地を置いてください");
+};
 
-  map.once("click", e => {
+document.getElementById("btn-goal").onclick = () => {
+  mode = "goal";
+  alert("地図をタップして目的地を置いてください");
+};
+
+// ===== 地図クリック（1回だけ） =====
+map.on("click", e => {
+  if (mode === "start") {
     if (startMarker) map.removeLayer(startMarker);
-
     startMarker = L.marker(e.latlng)
       .addTo(map)
       .bindPopup("現在地")
       .openPopup();
+  }
 
-    drawRoute();
-  });
-};
-
-// ===== 目的地を置く =====
-document.getElementById("btn-goal").onclick = () => {
-  alert("地図をタップして目的地を置いてください");
-
-  map.once("click", e => {
+  if (mode === "goal") {
     if (goalMarker) map.removeLayer(goalMarker);
-
     goalMarker = L.marker(e.latlng)
       .addTo(map)
       .bindPopup("目的地")
       .openPopup();
+  }
 
-    drawRoute();
-  });
-};
+  mode = null; // モード解除
+  drawRoute();
+});
 </script>
 
 </body>
