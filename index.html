@@ -1,111 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <title>地図テスト</title>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <style>
 html, body {
- height: 100%;
- margin: 0;
+  height: 100%;
+  margin: 0;
 }
 #map {
- width: 100%;
- height: 100%;
- background: #ddd;
+  width: 100%;
+  height: 100%;
+  background: #ddd;
 }
 button {
- position: fixed;
- top: 10px;
- left: 10px;
- z-index: 1000;
+  position: fixed;
+  left: 10px;
+  z-index: 1000;
+  padding: 6px 10px;
 }
+#btn-start { top: 10px; }
+#btn-goal  { top: 50px; }
 </style>
 </head>
+
 <body>
-<button onclick="getLocation()">📍現在地</button>
-<button onclick="setGoal()">🎯目的地</button>
+
+<button id="btn-start">📍 現在地を置く</button>
+<button id="btn-goal">🎯 目的地を置く</button>
+
 <div id="map"></div>
+
 <script>
-const imageWidth = 3312;   // ← 仮の数字でOK
-const imageHeight = 3392; // ← 仮の数字でOK
-const bounds = [[0,0], [imageHeight, imageWidth]];
+// ===== 画像サイズ（仮でOK） =====
+const imageWidth  = 3312;
+const imageHeight = 3392;
+
+// ===== Leaflet設定 =====
+const bounds = [[0, 0], [imageHeight, imageWidth]];
+
 const map = L.map('map', {
- crs: L.CRS.Simple,
- minZoom: -2,
- maxZoom: 2
+  crs: L.CRS.Simple,
+  minZoom: -2,
+  maxZoom: 2
 });
+
 L.imageOverlay('map.png', bounds).addTo(map);
 map.fitBounds(bounds);
-let myMarker, goalMarker, routeLine;
 
-// 現在地取得
+// ===== マーカー =====
+let startMarker = null;
+let goalMarker  = null;
+let routeLine   = null;
 
-function getLocation() {
+// ===== ルート描画 =====
+function drawRoute() {
+  if (!startMarker || !goalMarker) return;
 
-  navigator.geolocation.getCurrentPosition(pos => {
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
-
-    // ※ いまは仮で中央に表示（あとで正確変換する）
-
-    const x = imageWidth / 2;
-
-    const y = imageHeight / 2;
-
-    if(myMarker) map.removeLayer(myMarker);
-
-    myMarker = L.marker([y, x]).addTo(map)
-
-      .bindPopup("現在地").openPopup();
-
-    drawRoadRoute();
-
-  });
-
-}
-
-// 目的地セット
-
-function setGoal() {
-
-  alert("地図をタップして目的地を決めてね");
-
-  map.once("click", e => {
-
-    if(goalMarker) map.removeLayer(goalMarker);
-
-    goalMarker = L.marker(e.latlng).addTo(map)
-
-      .bindPopup("目的地").openPopup();
-
-    drawRoadRoute();
-
-  });
- function drawRoadRoute() {
-  if (!myMarker || !goalMarker) return;
-
-  // 既存ルート削除
   if (routeLine) map.removeLayer(routeLine);
 
-  const from = myMarker.getLatLng();
-  const to   = goalMarker.getLatLng();
-
-  routeLine = L.polyline([from, to], {
+  routeLine = L.polyline([
+    startMarker.getLatLng(),
+    goalMarker.getLatLng()
+  ], {
     color: 'blue',
     weight: 4
   }).addTo(map);
-
-  map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
 }
 
+// ===== 現在地を置く =====
+document.getElementById("btn-start").onclick = () => {
+  alert("地図をタップして現在地を置いてください");
 
-}
- 
+  map.once("click", e => {
+    if (startMarker) map.removeLayer(startMarker);
+
+    startMarker = L.marker(e.latlng)
+      .addTo(map)
+      .bindPopup("現在地")
+      .openPopup();
+
+    drawRoute();
+  });
+};
+
+// ===== 目的地を置く =====
+document.getElementById("btn-goal").onclick = () => {
+  alert("地図をタップして目的地を置いてください");
+
+  map.once("click", e => {
+    if (goalMarker) map.removeLayer(goalMarker);
+
+    goalMarker = L.marker(e.latlng)
+      .addTo(map)
+      .bindPopup("目的地")
+      .openPopup();
+
+    drawRoute();
+  });
+};
 </script>
+
 </body>
 </html>
-
-
-
