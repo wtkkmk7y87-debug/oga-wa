@@ -2,11 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>画像地図 × GPS</title>
+<title>画像地図 × GPSナビ</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- 行列計算 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
 
 <style>
 html, body {
@@ -18,7 +21,7 @@ html, body {
   height: 100%;
 }
 
-/* GPSボタンを大きく */
+/* GPSボタン */
 #gpsBtn {
   position: fixed;
   top: 15px;
@@ -32,7 +35,7 @@ html, body {
   color: white;
 }
 
-/* ステータス表示 */
+/* 状態表示 */
 #status {
   position: fixed;
   bottom: 15px;
@@ -46,7 +49,7 @@ html, body {
   font-size: 16px;
 }
 
-/* 📍目的地用 */
+/* 📍 */
 .pin {
   font-size: 30px;
 }
@@ -60,79 +63,124 @@ html, body {
 <div id="map"></div>
 
 <script>
-/* =====================
- ① 画像サイズ
-===================== */
+/* ===============================
+ ① 画像サイズ（map.jpgと一致）
+================================ */
 const imageWidth  = 1264;
 const imageHeight = 1295;
 
-/* =====================
- ② Leaflet 初期化
-===================== */
+/* ===============================
+ ② 対応点（※前に成功してた値）
+================================ */
+const controlPoints = [
+  { img:{x:179,  y:1211}, gps:{lat:35.640376, lng:139.294706} },
+  { img:{x:2894,y:697},  gps:{lat:35.641230, lng:139.300170} },
+  { img:{x:140,  y:2262}, gps:{lat:35.638620, lng:139.294578} },
+  { img:{x:3239,y:2442}, gps:{lat:35.638278, lng:139.300813} }
+];
+
+/* ===============================
+ ③ アフィン変換計算
+================================ */
+function computeAffine(points) {
+  let A = [], B = [];
+  points.forEach(p => {
+    const lng = p.gps.lng;
+    const lat = -p.gps.lat; // 上下反転
+    A.push([lng, lat, 1, 0, 0, 0]);
+    A.push([0, 0, 0, lng, lat, 1]);
+    B.push(p.img.x);
+    B.push(p.img.y);
+  });
+  const AT = math.transpose(A);
+  const X = math.multiply(
+    math.inv(math.multiply(AT, A)),
+    math.multiply(AT, B)
+  );
+  return { a:X[0], b:X[1], c:X[2], d:X[3], e:X[4], f:X[5] };
+}
+const affine = computeAffine(controlPoints);
+
+/* ===============================
+ ④ GPS → 画像座標
+================================ */
+function gpsToImage(lat, lng) {
+  lat = -lat;
+  return {
+    x: affine.a * lng + affine.b * lat + affine.c,
+    y: affine.d * lng + affine.e * lat + affine.f
+  };
+}
+
+/* ===============================
+ ⑤ Leaflet 初期化
+================================ */
 const bounds = [[0,0],[imageHeight,imageWidth]];
 const map = L.map("map", {
   crs: L.CRS.Simple,
   minZoom: -2,
   maxZoom: 2
 });
-
 L.imageOverlay("map.jpg", bounds).addTo(map);
 map.fitBounds(bounds);
 
-/* =====================
- ③ 現在地マーカー
-===================== */
+/* ===============================
+ ⑥ マーカー
+================================ */
 let currentMarker = null;
+let goalMarker = null;
 const status = document.getElementById("status");
 
-/* =====================
- ④ GPS処理
-===================== */
+/* 📍アイコン */
+const pinIcon = L.divIcon({
+  className: "pin",
+  html: "📍",
+  iconSize: [30,30],
+  iconAnchor: [15,30]
+});
+
+/* ===============================
+ ⑦ GPS監視
+================================ */
 document.getElementById("gpsBtn").onclick = () => {
   navigator.geolocation.watchPosition(
     pos => {
-      const x = pos.coords.longitude; // 仮配置（確認用）
-      const y = pos.coords.latitude;
+      const { latitude, longitude } = pos.coords;
+      const p = gpsToImage(latitude, longitude);
 
-      // 今回は「地図が出る」ことを最優先
-      const px = imageWidth / 2;
-      const py = imageHeight / 2;
-
-      // 範囲チェック
-      if (px < 0 || px > imageWidth || py < 0 || py > imageHeight) {
+      // 範囲外
+      if (
+        p.x < 0 || p.x > imageWidth ||
+        p.y < 0 || p.y > imageHeight
+      ) {
         status.textContent = "現在地は地図の範囲外です";
         status.style.display = "block";
+        if (currentMarker) {
+          map.removeLayer(currentMarker);
+          currentMarker = null;
+        }
         return;
       }
 
+      // 範囲内
       status.style.display = "none";
-
       if (!currentMarker) {
-        currentMarker = L.marker([py, px])
+        currentMarker = L.marker([p.y, p.x])
           .addTo(map)
           .bindPopup("現在地")
           .openPopup();
       } else {
-        currentMarker.setLatLng([py, px]);
+        currentMarker.setLatLng([p.y, p.x]);
       }
     },
     err => alert(err.message),
-    { enableHighAccuracy: true }
+    { enableHighAccuracy:true }
   );
 };
 
-/* =====================
- ⑤ 目的地（📍）
-===================== */
-let goalMarker = null;
-
-const pinIcon = L.divIcon({
-  className: "pin",
-  html: "📍",
-  iconSize: [30, 30],
-  iconAnchor: [15, 30]
-});
-
+/* ===============================
+ ⑧ 目的地（📍）
+================================ */
 map.on("click", e => {
   if (goalMarker) map.removeLayer(goalMarker);
   goalMarker = L.marker(e.latlng, { icon: pinIcon })
