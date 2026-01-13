@@ -2,58 +2,49 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>画像地図 × GPSナビ</title>
+<title>画像地図 × GPSナビ（完成版）</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
 
 <style>
-html, body {
-  height: 100%;
-  margin: 0;
-}
-#map {
-  width: 100%;
-  height: 100%;
+html, body { height:100%; margin:0; }
+#map { width:100%; height:100%; }
+
+#gpsBtn{
+  position:fixed;
+  top:15px;
+  left:15px;
+  z-index:1000;
+  font-size:20px;
+  padding:10px 16px;
+  border:none;
+  border-radius:10px;
+  background:#2c7be5;
+  color:white;
 }
 
-/* GPSボタン */
-#gpsBtn {
-  position: fixed;
-  top: 15px;
-  left: 15px;
-  z-index: 1000;
-  font-size: 22px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  border: none;
-  background: #2c7be5;
-  color: white;
-}
-
-/* 凡例 */
-#legend {
-  position: fixed;
-  bottom: 15px;
-  right: 15px;
-  z-index: 1000;
-  background: rgba(255,255,255,0.9);
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 16px;
+#legend{
+  position:fixed;
+  bottom:15px;
+  right:15px;
+  z-index:1000;
+  background:rgba(255,255,255,0.9);
+  padding:10px;
+  border-radius:8px;
+  font-size:14px;
 }
 </style>
 </head>
 
 <body>
-
-<button id="gpsBtn">📍 GPSを表示</button>
+<button id="gpsBtn">GPSを表示</button>
 
 <div id="legend">
-  <div>🔺 現在地</div>
-  <div>🚩 目的地</div>
-  <div>― 道</div>
+  <div>🚩 現在地</div>
+  <div>🏁 目的地</div>
+  <div>━ 灰色：道</div>
 </div>
 
 <div id="map"></div>
@@ -66,7 +57,7 @@ const imageWidth  = 1264;
 const imageHeight = 1295;
 
 /* ===============================
-② GPS → 画像変換（確定版）
+② GPS → 画像変換（成功してる値）
 ================================ */
 const controlPoints = [
   { img:{x:179,y:1211}, gps:{lat:35.640376,lng:139.294706} },
@@ -76,25 +67,22 @@ const controlPoints = [
 ];
 
 function computeAffine(points){
-  let A=[], B=[];
+  let A=[],B=[];
   points.forEach(p=>{
-    const lng = p.gps.lng;
-    const lat = -p.gps.lat;
-    A.push([lng,lat,1,0,0,0]);
-    A.push([0,0,0,lng,lat,1]);
-    B.push(p.img.x, p.img.y);
+    const lng=p.gps.lng, lat=-p.gps.lat;
+    A.push([lng,lat,1,0,0,0],[0,0,0,lng,lat,1]);
+    B.push(p.img.x,p.img.y);
   });
-  const X = math.multiply(
-    math.inv(math.multiply(math.transpose(A), A)),
-    math.multiply(math.transpose(A), B)
+  const X=math.multiply(
+    math.inv(math.multiply(math.transpose(A),A)),
+    math.multiply(math.transpose(A),B)
   );
-  return {a:X[0], b:X[1], c:X[2], d:X[3], e:X[4], f:X[5]};
+  return {a:X[0],b:X[1],c:X[2],d:X[3],e:X[4],f:X[5]};
 }
-
 const affine = computeAffine(controlPoints);
 
-function gpsToImage(lat, lng){
-  lat = -lat;
+function gpsToImage(lat,lng){
+  lat=-lat;
   return {
     x: affine.a*lng + affine.b*lat + affine.c,
     y: affine.d*lng + affine.e*lat + affine.f
@@ -104,33 +92,28 @@ function gpsToImage(lat, lng){
 /* ===============================
 ③ 地図表示
 ================================ */
-const bounds = [[0,0],[imageHeight,imageWidth]];
-const map = L.map("map", {
-  crs: L.CRS.Simple,
-  minZoom: -2,
-  maxZoom: 2
-});
-
-L.imageOverlay("map.jpg", bounds).addTo(map);
+const bounds=[[0,0],[imageHeight,imageWidth]];
+const map=L.map("map",{crs:L.CRS.Simple,minZoom:-2,maxZoom:2});
+L.imageOverlay("map.jpg",bounds).addTo(map);
 map.fitBounds(bounds);
 
 /* ===============================
 ④ アイコン（画像）
 ================================ */
 const currentIcon = L.icon({
-  iconUrl: "現在地.png",
-  iconSize: [50,50],
-  iconAnchor: [25,25]
+  iconUrl: "current.png",
+  iconSize: [40,40],
+  iconAnchor: [20,20]
 });
 
 const goalIcon = L.icon({
-  iconUrl: "目的地.jpg",
-  iconSize: [50,70],
-  iconAnchor: [25,70]
+  iconUrl: "goal.jpg",
+  iconSize: [40,60],
+  iconAnchor: [20,60]
 });
 
 /* ===============================
-⑤ 道データ（ここを増やす）
+⑤ 道データ（★ここに点を追加）
 ================================ */
 const roads = [
   [
@@ -138,60 +121,49 @@ const roads = [
     [557,608],
     [769,599],
     [779,664],
+    [779,730]
+  ],
+  [
     [779,730],
     [782,775],
     [771,821],
     [817,815],
-    [997,838],
-    [1078,777],
-    [1054,745],
-    [1049,678]
+    [997,838]
   ]
 ];
 
+// 道を描画
 roads.forEach(r=>{
-  L.polyline(
-    r.map(p => [p[1], p[0]]),
-    { color:"#999", weight:6 }
-  ).addTo(map);
+  L.polyline(r.map(p=>[p[1],p[0]]),{
+    color:"#999",
+    weight:6
+  }).addTo(map);
 });
 
 /* ===============================
-⑥ 現在地
+⑥ 現在地（GPS）
 ================================ */
-let currentMarker = null;
+let currentMarker=null;
 
-document.getElementById("gpsBtn").onclick = () => {
+document.getElementById("gpsBtn").onclick=()=>{
   navigator.geolocation.watchPosition(pos=>{
-    const p = gpsToImage(
-      pos.coords.latitude,
-      pos.coords.longitude
-    );
-
+    const p=gpsToImage(pos.coords.latitude,pos.coords.longitude);
     if(!currentMarker){
-      currentMarker = L.marker([p.y, p.x], {
-        icon: currentIcon
-      }).addTo(map);
-    } else {
-      currentMarker.setLatLng([p.y, p.x]);
+      currentMarker=L.marker([p.y,p.x],{icon:currentIcon}).addTo(map);
+    }else{
+      currentMarker.setLatLng([p.y,p.x]);
     }
-  },
-  err => alert(err.message),
-  { enableHighAccuracy:true });
+  },e=>alert(e.message),{enableHighAccuracy:true});
 };
 
 /* ===============================
-⑦ 目的地
+⑦ 目的地（クリック）
 ================================ */
-let goalMarker = null;
-
-map.on("click", e=>{
+let goalMarker=null;
+map.on("click",e=>{
   if(goalMarker) map.removeLayer(goalMarker);
-  goalMarker = L.marker(e.latlng, {
-    icon: goalIcon
-  }).addTo(map);
+  goalMarker=L.marker(e.latlng,{icon:goalIcon}).addTo(map);
 });
 </script>
-
 </body>
 </html>
