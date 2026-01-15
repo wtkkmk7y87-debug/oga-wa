@@ -21,7 +21,7 @@ html, body {
   height: 100%;
 }
 
-/* GPS再取得ボタン */
+/* GPSボタン */
 #gpsBtn {
   position: fixed;
   top: 15px;
@@ -48,6 +48,26 @@ html, body {
   display: none;
   font-size: 14px;
 }
+
+/* 方角コンパス（上＝北） */
+#compass {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  z-index: 1000;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  border: 2px solid #333;
+  font-weight: bold;
+  text-align: center;
+}
+
+#compass .n { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); }
+#compass .s { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
+#compass .e { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
+#compass .w { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); }
 </style>
 </head>
 
@@ -55,6 +75,15 @@ html, body {
 
 <button id="gpsBtn">📍 GPS再取得</button>
 <div id="status"></div>
+
+<!-- 方角 -->
+<div id="compass">
+  <div class="n">N</div>
+  <div class="e">E</div>
+  <div class="s">S</div>
+  <div class="w">W</div>
+</div>
+
 <div id="map"></div>
 
 <script>
@@ -81,36 +110,32 @@ function computeAffine(points) {
   let A = [], B = [];
   points.forEach(p => {
     const lng = p.gps.lng;
-    const lat = -p.gps.lat; // 緯度は反転
+    const lat = -p.gps.lat;   // 緯度反転
     A.push([lng, lat, 1, 0, 0, 0]);
     A.push([0, 0, 0, lng, lat, 1]);
     B.push(p.img.x);
     B.push(p.img.y);
   });
-
   const AT = math.transpose(A);
   const X = math.multiply(
     math.inv(math.multiply(AT, A)),
     math.multiply(AT, B)
   );
-
   return { a:X[0], b:X[1], c:X[2], d:X[3], e:X[4], f:X[5] };
 }
-
 const affine = computeAffine(controlPoints);
 
 /* ===============================
-④ GPS → 画像座標（Y軸修正版）
+④ GPS → 画像座標（Y軸補正）
 ================================ */
 function gpsToImage(lat, lng) {
   lat = -lat;
-
   const x = affine.a * lng + affine.b * lat + affine.c;
   const y = affine.d * lng + affine.e * lat + affine.f;
 
   return {
     x: x,
-    y: imageHeight - y   // ★ ここが重要（上下反転修正）
+    y: imageHeight - y   // 上下反転補正（上＝北）
   };
 }
 
@@ -178,7 +203,6 @@ function startGPS() {
       }
 
       status.style.display = "none";
-
       const currentLatLng = L.latLng(p.y, p.x);
 
       /* 現在地 */
@@ -205,7 +229,7 @@ function startGPS() {
         accuracyCircle.setRadius(radiusPx);
       }
 
-      /* 目的地があれば直線更新 */
+      /* ルート更新 */
       if (goalMarker) {
         drawRouteLine(currentLatLng, goalMarker.getLatLng());
       }
@@ -220,6 +244,7 @@ function startGPS() {
 ================================ */
 map.on("click", e => {
   if (goalMarker) map.removeLayer(goalMarker);
+
   goalMarker = L.marker(e.latlng, {
     icon: goalIcon
   }).addTo(map);
@@ -252,8 +277,7 @@ function drawRouteLine(from, to) {
 ================================ */
 window.addEventListener("load", startGPS);
 document.getElementById("gpsBtn").onclick = startGPS;
+
 </script>
-
-
 </body>
 </html>
