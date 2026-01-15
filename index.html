@@ -76,7 +76,7 @@ html, body {
 <button id="gpsBtn">📍 GPS再取得</button>
 <div id="status"></div>
 
-<!-- 方角 -->
+<!-- 方角表示 -->
 <div id="compass">
   <div class="n">N</div>
   <div class="e">E</div>
@@ -135,7 +135,7 @@ function gpsToImage(lat, lng) {
 
   return {
     x: x,
-    y: imageHeight - y   // 上下反転補正（上＝北）
+    y: imageHeight - y   // 上＝北に補正
   };
 }
 
@@ -155,7 +155,7 @@ map.fitBounds(bounds);
 ⑥ アイコン
 ================================ */
 const currentIcon = L.icon({
-  iconUrl: "current.png",
+  iconUrl: "current.png",   // 矢印画像
   iconSize: [40,40],
   iconAnchor: [20,20]
 });
@@ -178,7 +178,47 @@ const status = document.getElementById("status");
 const meterToPixel = 1.2;
 
 /* ===============================
-⑧ GPS処理（自動開始）
+⑧ 端末の向き（コンパス）
+================================ */
+let deviceHeading = 0; // 北=0°
+
+function startCompass() {
+  // iPhone 対応（許可が必要）
+  if (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  ) {
+    DeviceOrientationEvent.requestPermission().then(permission => {
+      if (permission === "granted") {
+        window.addEventListener("deviceorientation", handleOrientation, true);
+      }
+    });
+  } 
+  // Androidなど
+  else {
+    window.addEventListener("deviceorientationabsolute", handleOrientation, true);
+  }
+}
+
+function handleOrientation(event) {
+  if (event.alpha == null) return;
+
+  // 北を0度に補正
+  deviceHeading = 360 - event.alpha;
+  updateArrowRotation();
+}
+
+function updateArrowRotation() {
+  if (!currentMarker) return;
+
+  const iconEl = currentMarker.getElement();
+  if (!iconEl) return;
+
+  iconEl.style.transform = `rotate(${deviceHeading}deg)`;
+}
+
+/* ===============================
+⑨ GPS処理（自動開始）
 ================================ */
 function startGPS() {
   navigator.geolocation.watchPosition(
@@ -214,6 +254,8 @@ function startGPS() {
         currentMarker.setLatLng(currentLatLng);
       }
 
+      updateArrowRotation();   // ← 向きを反映
+
       /* GPS精度円 */
       const radiusPx = accuracy * meterToPixel;
       if (!accuracyCircle) {
@@ -240,7 +282,7 @@ function startGPS() {
 }
 
 /* ===============================
-⑨ 目的地（クリック）
+⑩ 目的地（クリック）
 ================================ */
 map.on("click", e => {
   if (goalMarker) map.removeLayer(goalMarker);
@@ -258,7 +300,7 @@ map.on("click", e => {
 });
 
 /* ===============================
-⑩ 現在地〜目的地の直線
+⑪ 現在地〜目的地の線
 ================================ */
 function drawRouteLine(from, to) {
   if (routeLine) {
@@ -273,9 +315,12 @@ function drawRouteLine(from, to) {
 }
 
 /* ===============================
-⑪ 起動処理
+⑫ 起動処理
 ================================ */
-window.addEventListener("load", startGPS);
+window.addEventListener("load", () => {
+  startGPS();
+  startCompass();
+});
 document.getElementById("gpsBtn").onclick = startGPS;
 
 </script>
