@@ -21,7 +21,7 @@ html, body {
   height: 100%;
 }
 
-/* 状態表示（← 元の場所：左下） */
+/* 状態表示（元の位置：左下） */
 #status {
   position: fixed;
   left: 15px;
@@ -81,7 +81,7 @@ function computeAffine(points) {
 const affine = computeAffine(controlPoints);
 
 /* ===============================
-④ GPS → 画像座標（Y反転修正済）
+④ GPS → 画像座標（Y反転）
 ================================ */
 function gpsToImage(lat, lng) {
   lat = -lat;
@@ -96,27 +96,48 @@ function gpsToImage(lat, lng) {
 const map = L.map("map", {
   crs: L.CRS.Simple,
   minZoom: -2,
-  maxZoom: 2,
-  zoomAnimation: false
+  maxZoom: 2
 });
 const bounds = [[0,0],[imageHeight,imageWidth]];
 L.imageOverlay("map.jpg", bounds).addTo(map);
 map.fitBounds(bounds);
 
 /* ===============================
-⑥ 手書きアイコン（サイズ固定）
+⑥ アイコン（ズーム補正対応）
 ================================ */
-const currentIcon = L.icon({
-  iconUrl: "current.png",
-  iconSize: [40, 40],
-  iconAnchor: [20, 40]   // 下中央
-});
+const CURRENT_ICON_SIZE = [40, 40];
+const GOAL_ICON_SIZE = [48, 48];
 
-const goalIcon = L.icon({
-  iconUrl: "goal.png",
-  iconSize: [48, 48],
-  iconAnchor: [24, 48]
-});
+function createCurrentIcon(scale = 1) {
+  return L.icon({
+    iconUrl: "current.png",
+    iconSize: [
+      CURRENT_ICON_SIZE[0] * scale,
+      CURRENT_ICON_SIZE[1] * scale
+    ],
+    iconAnchor: [
+      (CURRENT_ICON_SIZE[0] * scale) / 2,
+      CURRENT_ICON_SIZE[1] * scale
+    ]
+  });
+}
+
+function createGoalIcon(scale = 1) {
+  return L.icon({
+    iconUrl: "goal.png",
+    iconSize: [
+      GOAL_ICON_SIZE[0] * scale,
+      GOAL_ICON_SIZE[1] * scale
+    ],
+    iconAnchor: [
+      (GOAL_ICON_SIZE[0] * scale) / 2,
+      GOAL_ICON_SIZE[1] * scale
+    ]
+  });
+}
+
+let currentIcon = createCurrentIcon(1);
+let goalIcon = createGoalIcon(1);
 
 /* ===============================
 ⑦ レイヤー管理
@@ -151,9 +172,7 @@ navigator.geolocation.watchPosition(
 
     /* 現在地 */
     if (!currentMarker) {
-      currentMarker = L.marker(ll, {
-        icon: currentIcon
-      }).addTo(map);
+      currentMarker = L.marker(ll, { icon: currentIcon }).addTo(map);
     } else {
       currentMarker.setLatLng(ll);
     }
@@ -173,7 +192,7 @@ navigator.geolocation.watchPosition(
       accuracyCircle.setRadius(radiusPx);
     }
 
-    /* 直線更新 */
+    /* 直線 */
     if (goalMarker) {
       drawRoute(currentMarker.getLatLng(), goalMarker.getLatLng());
     }
@@ -187,9 +206,7 @@ navigator.geolocation.watchPosition(
 ================================ */
 map.on("click", e => {
   if (goalMarker) map.removeLayer(goalMarker);
-  goalMarker = L.marker(e.latlng, {
-    icon: goalIcon
-  }).addTo(map);
+  goalMarker = L.marker(e.latlng, { icon: goalIcon }).addTo(map);
 
   if (currentMarker) {
     drawRoute(currentMarker.getLatLng(), goalMarker.getLatLng());
@@ -210,6 +227,20 @@ function drawRoute(from, to) {
     routeLine.setLatLngs([from, to]);
   }
 }
+
+/* ===============================
+⑪ ズームしても旗サイズ固定
+================================ */
+map.on("zoomend", () => {
+  const zoom = map.getZoom();
+  const scale = Math.pow(2, -zoom);
+
+  currentIcon = createCurrentIcon(scale);
+  goalIcon = createGoalIcon(scale);
+
+  if (currentMarker) currentMarker.setIcon(currentIcon);
+  if (goalMarker) goalMarker.setIcon(goalIcon);
+});
 </script>
 </body>
 </html>
